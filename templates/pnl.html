@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}{{ t('Monthly P&L') }}{% endblock %}
+{% block body %}
+<h1>Monthly P&amp;L · {{ month }} {% if locked %}<span class="badge grey">🔒 locked</span>{% else %}<span class="badge amber">open</span>{% endif %}</h1>
+<form class="toolbar">
+  <div><label>Month</label><input type="month" name="month" value="{{ month }}"></div>
+  <div><label>Company</label><select name="company"><option value="">All companies + group</option>
+    {% for c in companies %}<option {{ 'selected' if c == company }}>{{ c }}</option>{% endfor %}</select></div>
+  <button class="small">Show</button>
+  <a class="btn secondary small" href="{{ url_for('export_csv', name='expenses', month=month, company=company or '') }}">Export expenses CSV</a>
+</form>
+<h2>Actual by company{% if p.cols|length > 1 %} and combined group{% endif %}</h2>
+<div class="table-wrap"><table id="pnl">
+<tr><th>Line</th>{% for c in p.cols %}<th class="n" title="{{ c.shop.company }}">{{ c.shop.code }}</th>{% endfor %}{% if p.cols|length > 1 %}<th class="n">Group</th>{% endif %}<th class="n">% of rev</th></tr>
+{% set rev = p.table[0].group %}
+{% for r in p.table %}
+<tr class="{{ 'bold' if r.bold }}"><td>{{ r.line }}</td>{% for v in r.vals %}<td class="n {{ 'down' if v < 0 }}">{{ v|money }}</td>{% endfor %}
+{% if p.cols|length > 1 %}<td class="n {{ 'down' if r.group < 0 }}">{{ r.group|money }}</td>{% endif %}
+<td class="n muted">{{ (r.group / rev * 100 if rev else none)|pct }}</td></tr>
+{% endfor %}
+</table></div>
+<p class="hint">Companies: {% for c in p.cols %}{{ c.shop.code }} = {{ c.shop.company }} (UEN {{ c.shop.uen }}){{ '; ' if not loop.last }}{% endfor %}</p>
+
+<h2>Budget vs actual</h2>
+<div class="table-wrap"><table id="bva">
+<tr><th>Line</th><th class="n">Budget</th><th class="n">Actual</th><th class="n">Variance</th><th class="n">Var %</th></tr>
+{% for r in p.table %}{% if r.group_budget is not none %}
+{% set var = r.group - r.group_budget %}{% set good = (var >= 0) if r.line in ('Revenue', 'Gross profit', 'Net profit') else (var <= 0) %}
+<tr class="{{ 'bold' if r.bold }}"><td>{{ r.line }}</td><td class="n">{{ r.group_budget|money }}</td><td class="n">{{ r.group|money }}</td>
+<td class="n {{ 'up' if good else 'down' }}">{{ var|money }}</td><td class="n {{ 'up' if good else 'down' }}">{{ (var / r.group_budget * 100 if r.group_budget else none)|signed }}</td></tr>
+{% endif %}{% endfor %}
+</table></div>
+<p class="hint">Revenue = net sales from daily submissions. Expenses include approved and pending items (rejected and voided excluded). Green = favourable.</p>
+{% endblock %}

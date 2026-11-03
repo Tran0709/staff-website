@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block title %}{{ t('Staff') }}{% endblock %}
+{% block body %}
+<h1>Staff</h1>
+<p class="hint">Headcount, pay, CPF and commission per shop. "Post payroll" on the Month-end page turns this into the month's Staff expense.</p>
+<div class="table-wrap"><table>
+<tr><th>Shop</th><th>Name</th><th>Position</th><th>Type</th><th class="n">Monthly pay</th><th class="n">Hourly</th><th class="n">CPF %</th><th class="n">Commission %</th><th>Active</th><th></th></tr>
+{% for r in rows %}<tr class="{{ 'muted' if not r.active }}"><td>{{ r.shop_name }}</td><td>{{ r.name }}</td><td>{{ r.position }}</td><td>{{ r.employment }}</td>
+<td class="n">{{ r.monthly_pay|money }}</td><td class="n">{{ r.hourly_rate|money(2) }}</td><td class="n">{{ r.cpf_rate }}</td><td class="n">{{ r.commission_rate }}</td><td>{{ '✓' if r.active else '–' }}</td>
+<td><a class="small" href="?edit={{ r.id }}#form">edit</a></td></tr>{% endfor %}
+</table></div>
+{% set e = (rows|selectattr('id', 'equalto', edit)|first) if edit else none %}
+<form method="post" class="card" id="form">
+  <h2 style="margin-top:0">{{ 'Edit ' ~ e.name if e else 'Add staff' }}</h2>
+  <input type="hidden" name="_csrf" value="{{ csrf }}">{% if e %}<input type="hidden" name="id" value="{{ e.id }}">{% endif %}
+  <div class="row">
+    <div><label>Shop</label><select name="shop_id">{% for s in shops %}<option value="{{ s.id }}" {{ 'selected' if e and e.shop_id == s.id }}>{{ s.name }}</option>{% endfor %}</select></div>
+    <div><label>Name</label><input name="name" required value="{{ e.name if e }}"></div>
+    <div><label>Position</label><input name="position" value="{{ e.position if e }}"></div>
+    <div><label>Type</label><select name="employment">{% for x in ['full-time', 'part-time'] %}<option {{ 'selected' if e and e.employment == x }}>{{ x }}</option>{% endfor %}</select></div>
+    <div><label>Monthly pay</label><input name="monthly_pay" inputmode="decimal" value="{{ e.monthly_pay if e else 0 }}"></div>
+    <div><label>Hourly rate</label><input name="hourly_rate" inputmode="decimal" value="{{ e.hourly_rate if e else 0 }}"></div>
+    <div><label>Employer CPF %</label><input name="cpf_rate" inputmode="decimal" value="{{ e.cpf_rate if e else 17 }}"></div>
+    <div><label>Commission %</label><input name="commission_rate" inputmode="decimal" value="{{ e.commission_rate if e else 0 }}"></div>
+    <div><label>Active</label><select name="active"><option value="1">Yes</option><option value="0" {{ 'selected' if e and not e.active }}>No (left)</option></select></div>
+  </div>
+  <button class="big-submit">Save</button>
+</form>
+{% endblock %}

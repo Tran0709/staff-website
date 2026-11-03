@@ -1,0 +1,7 @@
+data/
+__pycache__/
+*.pyc
+tests/screenshots/
+*.mp4
+*.webm
+.env

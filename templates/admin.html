@@ -1,0 +1,66 @@
+{% extends "base.html" %}{% block title %}{{ t('Admin') }}{% endblock %}
+{% block body %}
+<h1>Admin</h1>
+<div class="toolbar">{% for k, l in [('settings', 'Controls'), ('shops', 'Shops & companies'), ('users', 'Users & access'), ('cats', 'Chart of accounts')] %}
+<a class="btn small {{ '' if tab == k else 'secondary' }}" href="?tab={{ k }}">{{ l }}</a>{% endfor %}
+<a class="btn small secondary" href="{{ url_for('admin_kpi') }}">KPI fields &amp; targets</a></div>
+
+{% if tab == 'settings' %}
+<form method="post" class="card"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="action" value="settings"><input type="hidden" name="tab" value="settings">
+<div class="row">
+  <div><label>Receipt photo required above (S$)</label><input name="receipt_threshold" value="{{ settings.receipt_threshold }}"><div class="hint">0 = always required</div></div>
+  <div><label>Head (Finance) approval above (S$)</label><input name="approval_limit" value="{{ settings.approval_limit }}"></div>
+  <div><label>GM approval above (S$)</label><input name="gm_approval_limit" value="{{ settings.gm_approval_limit }}"></div>
+  <div><label>Daily deadline (hour, 24h)</label><input name="deadline_hour" value="{{ settings.deadline_hour }}"></div>
+  <div><label>Sales-drop alert (%)</label><input name="sales_drop_pct" value="{{ settings.sales_drop_pct }}"></div>
+  <div><label>App address (for links in e-mails)</label><input name="app_url" value="{{ settings.app_url }}"></div>
+</div>
+<label><input type="checkbox" name="require_2fa" value="1" {{ 'checked' if settings.require_2fa == '1' }}> Require two-factor login for every user</label>
+<button>Save controls</button></form>
+{% elif tab == 'shops' %}
+<div class="table-wrap"><table>
+<tr><th>Code</th><th>Outlet</th><th>Company</th><th>UEN</th><th>Address</th><th>Type</th><th>Manager</th><th>Active</th></tr>
+{% for s in shops %}<tr><td>{{ s.code }}</td><td>{{ s.name }} {{ s.name_zh or '' }}</td><td>{{ s.company }}</td><td>{{ s.uen }}</td><td>{{ s.address }}</td><td>{{ s.kind }}</td><td>{{ s.manager }}</td><td>{{ '✓' if s.active }}</td></tr>{% endfor %}
+</table></div>
+{% for s in shops + [none] %}
+<details class="card"><summary>{{ ('Edit ' ~ s.code) if s else '+ Add a shop / company' }}</summary>
+<form method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="action" value="shop"><input type="hidden" name="tab" value="shops">
+{% if s %}<input type="hidden" name="id" value="{{ s.id }}">{% endif %}
+<div class="row">{% for k in ['code', 'name', 'name_zh', 'company', 'uen', 'address', 'manager'] %}<div><label>{{ k }}</label><input name="{{ k }}" value="{{ s[k] if s and s[k] }}"></div>{% endfor %}
+<div><label>type</label><select name="kind">{% for k in ['restaurant', 'beauty', 'brow', 'venue', 'wellness', 'other'] %}<option {{ 'selected' if s and s.kind == k }}>{{ k }}</option>{% endfor %}</select></div></div>
+<label><input type="checkbox" name="active" value="1" {{ 'checked' if not s or s.active }}> active</label><button class="small">Save</button></form></details>
+{% endfor %}
+{% elif tab == 'users' %}
+<div class="table-wrap"><table>
+<tr><th>Username</th><th>Name</th><th>Role</th><th>Shop</th><th>E-mail</th><th>Phone</th><th>2FA</th><th>Active</th></tr>
+{% for x in users %}<tr><td>{{ x.username }}</td><td>{{ x.name }}</td><td>{{ ROLES[x.role] }}</td><td>{{ x.shop_code or '' }}</td><td>{{ x.email }}</td><td>{{ x.phone or '' }}</td><td>{{ '✓' if x.totp_secret else '–' }}</td><td>{% if x.active %}✓{% else %}<form method="post" action="{{ url_for('approve_user') }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ x.id }}"><button class="small approve-user">Approve</button></form>{% endif %}</td></tr>{% endfor %}
+</table></div>
+{% for x in users + [none] %}
+<details class="card"><summary>{{ ('Edit ' ~ x.username) if x else '+ Add a user' }}</summary>
+<form method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="action" value="user"><input type="hidden" name="tab" value="users">
+{% if x %}<input type="hidden" name="id" value="{{ x.id }}">{% endif %}
+<div class="row">
+<div><label>username</label><input name="username" value="{{ x.username if x }}" required></div>
+<div><label>name</label><input name="name" value="{{ x.name if x }}" required></div>
+<div><label>role</label><select name="role">{% for k, v in ROLES.items() %}<option value="{{ k }}" {{ 'selected' if x and x.role == k }}>{{ v }}</option>{% endfor %}</select></div>
+<div><label>shop (managers)</label><select name="shop_id"><option value="">–</option>{% for s in shops %}<option value="{{ s.id }}" {{ 'selected' if x and x.shop_id == s.id }}>{{ s.code }}</option>{% endfor %}</select></div>
+<div><label>e-mail</label><input name="email" value="{{ x.email if x and x.email }}"></div>
+<div><label>phone</label><input name="phone" value="{{ x.phone if x and x.phone }}"></div>
+<div><label>{{ 'new password (blank = keep)' if x else 'password' }}</label><input name="password" type="password" autocomplete="new-password"></div>
+</div>
+<label><input type="checkbox" name="active" value="1" {{ 'checked' if not x or x.active }}> active</label>
+{% if x and x.totp_secret %}<label><input type="checkbox" name="reset_2fa" value="1"> reset two-factor (lost phone)</label>{% endif %}
+<button class="small">Save</button></form></details>
+{% endfor %}
+{% elif tab == 'cats' %}
+<p class="hint">One chart of accounts for every shop. Final categories to be agreed with the accountant; account codes go into the CSV export.</p>
+<div class="table-wrap"><table>
+<tr><th>Category</th><th>Account code</th><th>Includes</th><th>Used for</th><th>Purpose required</th><th></th></tr>
+{% for c in cats + [none] %}<tr><td hidden><form method="post" id="cf{{ loop.index }}"></form></td><input form="cf{{ loop.index }}" type="hidden" name="_csrf" value="{{ csrf }}"><input form="cf{{ loop.index }}" type="hidden" name="action" value="category"><input form="cf{{ loop.index }}" type="hidden" name="tab" value="cats">
+{% if c %}<input form="cf{{ loop.index }}" type="hidden" name="id" value="{{ c.id }}">{% endif %}
+<td><input form="cf{{ loop.index }}" name="name" value="{{ c.name if c }}" placeholder="New category" {{ 'readonly' if c }}></td><td><input form="cf{{ loop.index }}" name="account_code" value="{{ c.account_code if c }}"></td>
+<td><input form="cf{{ loop.index }}" name="includes" value="{{ c.includes if c }}"></td><td><input form="cf{{ loop.index }}" name="used_for" value="{{ c.used_for if c }}"></td>
+<td><input form="cf{{ loop.index }}" type="checkbox" name="needs_purpose" value="1" {{ 'checked' if c and c.needs_purpose }}></td><td><button form="cf{{ loop.index }}" class="small">{{ 'Save' if c else 'Add' }}</button></td></tr>{% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}

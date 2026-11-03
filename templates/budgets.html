@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}{{ t('Budgets') }}{% endblock %}
+{% block body %}
+<h1>Monthly budgets · {{ month }}</h1>
+<form class="toolbar"><div><label>Month</label><input type="month" name="month" value="{{ month }}" onchange="this.form.submit()"></div></form>
+<form method="post">
+<input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month }}">
+<div class="table-wrap"><table>
+<tr><th>Line</th>{% for s in shops %}<th class="n">{{ s.code }}</th>{% endfor %}</tr>
+<tr class="muted small"><td>3-month baseline sales</td>{% for s in shops %}<td class="n">{{ base.get(s.id)|money }}</td>{% endfor %}</tr>
+{% for ln in lines %}{% set i = loop.index0 %}<tr><td>{{ ln }}</td>{% for s in shops %}
+<td><input name="b_{{ s.id }}_{{ i }}" inputmode="decimal" style="min-width:90px;text-align:right;padding:6px" value="{{ '%.0f'|format(vals[(s.id, ln)]) if (s.id, ln) in vals else '' }}"></td>{% endfor %}</tr>{% endfor %}
+</table></div>
+<button>Save budget</button>
+</form>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}{{ t('Group') }}{% endblock %}
+{% block body %}
+<h1>Group summary · {{ day.strftime('%B %Y') }} to date</h1>
+{% set ns = namespace(s=0, p=0, b=0, ls=0) %}
+{% for r in rows %}{% set ns.s = ns.s + r.mtd.net_sales %}{% set ns.p = ns.p + r.mtd.net_profit %}{% set ns.b = ns.b + (r.budget or 0) %}{% set ns.ls = ns.ls + r.last.net_sales %}{% endfor %}
+<div class="grid">
+  <div class="stat"><div class="k">Sales month to date</div><div class="v" id="group-sales">{{ ns.s|money }}</div><div class="d muted">Budget {{ ns.b|money }}</div></div>
+  <div class="stat"><div class="k">Profit month to date</div><div class="v {{ 'down' if ns.p < 0 }}">{{ ns.p|money }}</div></div>
+  <div class="stat"><div class="k">Last month sales</div><div class="v">{{ ns.ls|money }}</div><div class="d muted">{{ pm }}</div></div>
+</div>
+<div class="grid2">
+<div class="card"><h2 style="margin-top:0">Group sales, last 6 months</h2>{{ bars(trend) }}</div>
+<div class="card"><h2 style="margin-top:0">By shop (month to date)</h2>
+<table>{% for r in rows %}<tr><td>{{ r.shop.name }}</td><td class="n">{{ r.mtd.net_sales|money }}</td><td class="n {{ 'down' if r.mtd.net_profit < 0 }}">{{ r.mtd.net_profit|money }}</td></tr>{% endfor %}
+<tr><td class="muted small" colspan="3">Sales · profit</td></tr></table></div>
+</div>
+<h2>KPI status {{ pm }}</h2>
+<div class="table-wrap"><table>
+<tr><th>Shop</th><th>Green</th><th>Amber</th><th>Red</th></tr>
+{% for s in sc %}<tr><td>{{ s.shop.name }}</td><td><span class="badge green">{{ s.counts.green }}</span></td><td><span class="badge amber">{{ s.counts.amber }}</span></td><td><span class="badge red">{{ s.counts.red }}</span></td></tr>{% endfor %}
+</table></div>
+{% if u.role == 'owner' %}<p class="hint">Read-only group view.</p>{% endif %}
+{% endblock %}
