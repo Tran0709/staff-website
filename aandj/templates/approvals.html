@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}{{ t('Approvals') }}{% endblock %}
+{% block body %}
+<h1>Expense approvals</h1>
+{% if not rows %}<div class="card">Nothing waiting for approval.</div>{% endif %}
+{% for e in rows %}
+<div class="card approval">
+  <div><b>{{ e.shop_name }}</b> · {{ e.date }} · {{ e.supplier }} · {{ e.category }}</div>
+  <div class="stat" style="border:0;padding:4px 0"><div class="v">{{ e.amount|money(2) }}</div><div class="d muted">GST {{ e.gst|money(2) }} · {{ e.payment_mode }} · {{ e.paid_status }}</div></div>
+  <div>Purpose: {{ e.purpose or '–' }}</div>
+  <div class="small muted">Submitted by {{ e.submitter or '–' }} · needs <b>{{ 'GM' if e.approver_level == 'gm' else 'Finance / GM' }}</b> approval
+    {% if e.receipt %}· <a href="{{ url_for('uploads', name=e.receipt) }}" target="_blank">receipt</a>{% endif %}</div>
+  {% if e.approver_level != 'gm' or u.role == 'gm' %}
+  <form method="post" class="toolbar" style="margin-top:8px">
+    <input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ e.id }}">
+    <input name="note" placeholder="Note (optional)" style="flex:1 1 180px">
+    <button name="decision" value="approve">Approve</button>
+    <button name="decision" value="reject" class="secondary">Reject</button>
+  </form>
+  {% else %}<p class="small badge amber">Waiting for the GM</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

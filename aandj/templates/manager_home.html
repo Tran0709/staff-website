@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block title %}{{ t('Today') }}{% endblock %}
+{% block body %}
+<h1>{{ shop.name }} {% if lang == 'zh' and shop.name_zh %}· {{ shop.name_zh }}{% endif %}</h1>
+{% include "_shopdate.html" %}
+<p class="muted small">{{ t('Deadline') }}: {{ day.strftime('%a %d %b') }} {{ deadline }}:00</p>
+<h2>{{ t("Today's checklist") }}</h2>
+{% set q = {'shop': shop.id, 'date': day.isoformat()} %}
+<a class="check" href="{{ url_for('input_sales', **q) }}" id="go-sales"><b>1.</b> {{ t('Daily sales') }}
+  {% if status.sales %}<span class="muted small">{{ status.sales.net|money(2) }}</span>{% endif %}
+  <span class="st badge {{ 'green' if status.sales else 'red' }}">{{ t('Done') if status.sales else t('Not yet') }}</span></a>
+<a class="check" href="{{ url_for('input_expense', **q) }}" id="go-exp"><b>2.</b> {{ t('Expenses') }}
+  <span class="muted small">{{ status.exp.n }} · {{ status.exp.amt|money(2) }}</span>
+  <span class="st badge {{ 'green' if status.exp.n else 'grey' }}">{{ status.exp.n }}</span></a>
+{% if can('input_ops') %}
+<a class="check" href="{{ url_for('input_ops', **q) }}" id="go-ops"><b>3.</b> {{ t('Operations') }}
+  <span class="st badge {{ 'green' if status.ops else 'red' }}">{{ t('Done') if status.ops else t('Not yet') }}</span></a>
+{% endif %}
+<a class="check" href="{{ url_for('input_kpi', **q) }}" id="go-kpi"><b>4.</b> {{ t('Shop-specific KPIs') }}
+  <span class="st badge {{ 'green' if status.kpi else 'red' }}">{{ status.kpi if status.kpi else t('Not yet') }}</span></a>
+
+{% if missing %}
+<h2>{{ t('Missing days') }}</h2>
+<div class="card">{% for d in missing %}<a class="btn secondary small" style="margin:2px" href="{{ url_for('input_sales', shop=shop.id, date=d.isoformat()) }}">{{ d.strftime('%a %d %b') }}</a>{% endfor %}</div>
+{% endif %}
+{% if msgs %}
+<h2>{{ t('Messages') }}</h2>
+<div class="card small">{% for m in msgs %}<div><b>{{ m.subject }}</b> <span class="muted">{{ m.created_at[:16].replace('T', ' ') }}</span></div>{% endfor %}
+<a href="{{ url_for('inbox') }}">{{ t('Inbox') }} →</a></div>
+{% endif %}
+{% endblock %}

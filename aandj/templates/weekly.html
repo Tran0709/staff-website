@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% block title %}{{ t('Weekly') }}{% endblock %}
+{% block body %}
+<h1>Weekly dashboard · {{ w.start.strftime('%d %b') }} – {{ w.end.strftime('%d %b %Y') }}</h1>
+<div class="toolbar">
+  <a class="btn secondary small" href="?week={{ prev.isoformat() }}">← Previous week</a>
+  <a class="btn secondary small" href="?week={{ next.isoformat() }}">Next week →</a>
+  <form><input type="date" name="week" value="{{ ws.isoformat() }}" onchange="this.form.submit()"></form>
+</div>
+{% set ns = namespace(sales=0, prev=0, profit=0, cust=0, hours=0, mkt=0) %}
+{% for r in w.rows %}{% set ns.sales = ns.sales + r.m.net_sales %}{% set ns.prev = ns.prev + r.prev.net_sales %}{% set ns.profit = ns.profit + r.m.net_profit %}
+{% set ns.cust = ns.cust + r.m.customers %}{% set ns.hours = ns.hours + r.ops.hours %}{% set ns.mkt = ns.mkt + r.exp.get('Marketing', 0) %}{% endfor %}
+<div class="grid">
+  <div class="stat"><div class="k">Sales</div><div class="v">{{ ns.sales|money }}</div>
+    <div class="d {{ 'up' if ns.sales >= ns.prev else 'down' }}">{{ ((ns.sales - ns.prev) / ns.prev * 100 if ns.prev else none)|signed }} vs last week</div></div>
+  <div class="stat"><div class="k">Profit</div><div class="v {{ 'down' if ns.profit < 0 }}">{{ ns.profit|money }}</div><div class="d muted">after all recorded costs</div></div>
+  <div class="stat"><div class="k">Customers</div><div class="v">{{ '{:,}'.format(ns.cust) }}</div></div>
+  <div class="stat"><div class="k">Staff hours</div><div class="v">{{ '{:,.0f}'.format(ns.hours) }}</div></div>
+  <div class="stat"><div class="k">Marketing spend</div><div class="v">{{ ns.mkt|money }}</div></div>
+  <div class="stat"><div class="k">On-time submissions</div><div class="v">{{ ontime|pct(0) }}</div></div>
+</div>
+
+<h2>Shop ranking</h2>
+<div class="table-wrap"><table id="ranking">
+<tr><th>#</th><th>Shop</th><th class="n">Sales</th><th class="n">vs last wk</th><th class="n">Weekday</th><th class="n">Weekend</th><th class="n">Profit</th>
+<th class="n">Customers</th><th class="n">Avg spend</th><th class="n">COGS %</th><th class="n">Staff %</th></tr>
+{% for r in w.ranked %}
+<tr><td>{{ loop.index }}</td><td>{{ r.shop.name }}</td><td class="n">{{ r.m.net_sales|money }}</td>
+<td class="n {{ 'up' if (r.growth or 0) >= 0 else 'down' }}">{{ r.growth|signed }}</td>
+<td class="n">{{ r.wkday|money }}</td><td class="n">{{ r.wkend|money }}</td>
+<td class="n {{ 'down' if r.m.net_profit < 0 }}">{{ r.m.net_profit|money }}</td><td class="n">{{ r.m.customers }}</td>
+<td class="n">{{ r.m.avg_spend|money(2) }}</td><td class="n">{{ r.m.food_cost_pct|pct }}</td><td class="n">{{ r.m.staff_cost_pct|pct }}</td></tr>
+{% endfor %}
+</table></div>
+
+<div class="grid2">
+<div class="card"><h2 style="margin-top:0">Group sales trend (8 weeks)</h2>
+{% set tr_ = [] %}{% for x in w.trend %}{% set _ = tr_.append((x.week.strftime('%d/%m'), x.total)) %}{% endfor %}{{ bars(tr_) }}</div>
+<div class="card"><h2 style="margin-top:0">This week by shop</h2>
+{% set bs = [] %}{% for r in w.ranked %}{% set _ = bs.append((r.shop.code, r.m.net_sales)) %}{% endfor %}{{ bars(bs) }}</div>
+</div>
+
+<h2>People</h2>
+<div class="table-wrap"><table>
+<tr><th>Shop</th><th class="n">Avg staff/day</th><th class="n">Staff hours</th><th class="n">Sales / staff</th><th class="n">Absence days</th><th class="n">Lateness</th><th class="n">Complaints</th><th class="n">Compliments</th></tr>
+{% for r in w.rows %}<tr><td>{{ r.shop.name }}</td><td class="n">{{ '%.1f'|format(r.ops.heads) }}</td><td class="n">{{ '%.0f'|format(r.ops.hours) }}</td>
+<td class="n">{{ r.sales_per_head|money }}</td><td class="n">{{ r.ops.absences or 0 }}</td><td class="n">{{ r.ops.late or 0 }}</td><td class="n">{{ r.ops.complaints or 0 }}</td><td class="n">{{ r.ops.compliments or 0 }}</td></tr>{% endfor %}
+</table></div>
+
+<h2>Venue & marketing</h2>
+<div class="table-wrap"><table>
+<tr><th>Shop</th><th>Highlights</th></tr>
+{% for r in w.rows %}<tr><td>{{ r.shop.name }}</td><td class="small">
+{% if r.shop.kind == 'venue' %}Enquiries {{ r.m.enquiries|val }} · site visits {{ r.m.site_visits|val }} · events {{ r.m.event_bookings|val }} · rooms let {{ r.m.rooms_let|val }} · rent collected {{ r.m.rent_collected|val('S$') }} of {{ r.m.rent_payable|val('S$') }} ({{ r.m.rent_collected_pct|pct(0) }}) · utilisation {{ r.m.space_utilisation|pct(0) }}
+{% elif r.shop.kind == 'restaurant' %}Covers lunch {{ r.m.lunch_covers|val }} / dinner {{ r.m.dinner_covers|val }} · delivery {{ r.m.delivery_sales|val('S$') }} · wastage {{ r.m.wastage|val('S$') }} · rating {{ r.m.google_rating|val }}
+{% elif r.shop.kind == 'beauty' %}Leads {{ ((r.m.leads_social or 0) + (r.m.leads_walkin or 0) + (r.m.leads_referral or 0))|int }} · consultations {{ r.m.consultations|val }} · packages {{ r.m.packages_sold|val }} · room use {{ r.m.room_utilisation|pct(0) }} · rebooking {{ r.m.rebooking_rate|pct(0) }}
+{% elif r.shop.kind == 'brow' %}Influencer leads {{ r.m.leads_influencer|val }} · bookings {{ r.m.bookings|val }} · show-up {{ r.m.show_up_rate|pct(0) }} · visit→paid {{ r.m.visit_to_paid|pct(0) }} · referrals {{ r.m.referrals|val }}
+{% elif r.shop.kind == 'wellness' %}AI checks {{ r.m.ai_checks|val }} · check→paid {{ r.m.check_to_paid|pct(0) }} · sessions {{ r.m.treatment_sessions|val }} · memberships {{ r.m.memberships_sold|val }} · repeat {{ r.m.repeat_customers|val }}
+{% endif %} · marketing {{ r.exp.get('Marketing', 0)|money }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}{{ t('Alerts') }}{% endblock %}
+{% block body %}
+<h1>Alerts</h1>
+<form method="post" class="toolbar"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="action" value="run">
+<button class="small" id="run-checks">Run checks now</button>
+<label class="small"><input type="checkbox" name="weekly" value="1"> also send the weekly dashboard e-mail now</label></form>
+<p class="hint">Checks run automatically every few minutes: late submissions (after the daily deadline), sales down &gt; 15% vs same day last week, expenses over budget, food cost above target, venue rent collected below target, month-end not closed by the 3rd. The GM gets each alert once in the inbox / by e-mail.</p>
+<div class="table-wrap"><table id="alerts">
+<tr><th>When</th><th>Type</th><th>Shop</th><th>Alert</th><th></th></tr>
+{% for a in rows %}<tr class="{{ 'muted' if a.resolved }}"><td class="small">{{ a.created_at.replace('T', ' ')[:16] }}</td>
+<td><span class="badge {{ 'grey' if a.resolved else 'red' }}">{{ a.kind.replace('_', ' ') }}</span></td><td>{{ a.shop_name or '–' }}</td><td>{{ a.message }}</td>
+<td>{% if not a.resolved %}<form method="post" class="inline"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ a.id }}"><button class="small secondary">Resolve</button></form>{% else %}<span class="small">resolved</span>{% endif %}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% block title %}{{ t('Daily flash') }}{% endblock %}
+{% block body %}
+<h1>{{ t('Daily flash') }} · {{ day.strftime('%a %d %b %Y') }}</h1>
+<form class="toolbar"><div><label>{{ t('Date') }}</label><input type="date" name="date" value="{{ day.isoformat() }}" onchange="this.form.submit()"></div></form>
+<div class="grid">
+  <div class="stat"><div class="k">Sales today</div><div class="v" id="flash-total">{{ f.total|money }}</div>
+    <div class="d {{ 'up' if (f.change or 0) >= 0 else 'down' }}">{{ f.change|signed }} vs same day last week</div></div>
+  <div class="stat"><div class="k">Submitted</div><div class="v">{{ f.rows|length - f.missing|length }}/{{ f.rows|length }}</div>
+    <div class="d {{ 'down' if f.missing else 'up' }}">{{ (f.missing|length ~ ' yet to submit') if f.missing else 'All in' }}</div></div>
+  <div class="stat"><div class="k">On time, last 7 days</div><div class="v">{{ ontime|pct(0) }}</div><div class="d muted">Target 100% by {{ deadline }}:00</div></div>
+  {% if pending %}<div class="stat"><div class="k">Approvals waiting</div><div class="v">{{ pending }}</div><div class="d"><a href="{{ url_for('approvals') }}">Review →</a></div></div>{% endif %}
+</div>
+<h2>Sales by shop</h2>
+<div class="table-wrap"><table id="flash-table">
+<tr><th>Shop</th><th class="n">Net sales</th><th class="n">Same day last wk</th><th class="n">Change</th><th class="n">Customers</th><th>Status</th></tr>
+{% for r in f.rows %}
+<tr><td>{{ r.shop.name }}</td><td class="n">{{ r.net|money }}</td><td class="n">{{ r.lw_net|money }}</td>
+<td class="n {{ 'down' if (r.change or 0) < -15 else ('up' if (r.change or 0) > 0 else '') }}">{{ r.change|signed }}</td>
+<td class="n">{{ r.customers if r.customers is not none else '–' }}</td>
+<td>{% if r.submitted %}<span class="badge green">Submitted {{ r.row.submitted_at[11:16] }}</span>{% else %}<span class="badge red">Yet to submit</span>{% endif %}</td></tr>
+{% endfor %}
+<tr class="bold"><td>Group</td><td class="n">{{ f.total|money }}</td><td class="n">{{ f.lw_total|money }}</td><td class="n">{{ f.change|signed }}</td><td></td><td></td></tr>
+</table></div>
+<div class="grid2">
+<div class="card"><h2 style="margin-top:0">Today by shop</h2>
+{% set ch = [] %}{% for r in f.rows %}{% set _ = ch.append((r.shop.code, r.net or 0)) %}{% endfor %}{{ bars(ch) }}</div>
+<div class="card"><h2 style="margin-top:0">Month to date vs budget</h2>
+<table>{% for m in mtd %}<tr><td>{{ m.shop.code }}</td><td class="n">{{ m.net|money }}</td><td class="n muted">of {{ m.budget|money }}</td>
+<td class="n">{% if m.budget %}{{ (m.net / m.budget * 100)|pct(0) }}{% endif %}</td></tr>{% endfor %}</table></div>
+</div>
+{% if alerts %}
+<h2>Open alerts</h2>
+<div class="card small">{% for a in alerts %}<div>⚠ {{ a.message }}</div>{% endfor %}<a href="{{ url_for('alerts') }}">All alerts →</a></div>
+{% endif %}
+{% endblock %}
