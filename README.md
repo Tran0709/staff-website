@@ -85,6 +85,10 @@ appear in each user's in-app **Inbox**).
 - `db.py` – schema, triggers, chart of accounts, KPI field definitions, demo seed
 - `i18n.py` – Chinese labels · `templates/`, `static/` – UI · `docs/` – manager guides · `tests/e2e.py` – browser test
 
+## Putting it online
+
+This is a Python server with a database file, so it can't run on Cloudflare Workers or Pages. To publish it for free with **Cloudflare Tunnel** from an always-on Windows PC, follow [deploy/cloudflare-tunnel.md](deploy/cloudflare-tunnel.md). The production entry point is `python serve.py` (Waitress, port 8000, HTTPS-only cookies, plus the reminder/alert scheduler).
+
 ## Going live checklist
 
 1. Start on an empty database with `AANDJ_NO_DEMO=1`, `AANDJ_SECRET=<random>` and `AANDJ_ADMIN_PASSWORD=<initial password>`. This creates only the chart of accounts and the GM login `joe`. Sign in and change the password.

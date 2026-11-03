@@ -20,12 +20,31 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import automation
 import reports
-from db import BACKUPS, UPLOADS, connect, ensure_db
+from db import BACKUPS, DB_PATH, UPLOADS, connect, ensure_db
 from i18n import tr, translate_html
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
-app.secret_key = os.environ.get("AANDJ_SECRET") or hashlib.sha256(os.path.abspath(__file__).encode()).hexdigest()
+
+
+def _secret_key():
+    """AANDJ_SECRET if set, otherwise a random key created once and kept in data/secret.key."""
+    if os.environ.get("AANDJ_SECRET"):
+        return os.environ["AANDJ_SECRET"]
+    path = os.path.join(os.path.dirname(DB_PATH), "secret.key")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(secrets.token_hex(32))
+    with open(path) as f:
+        return f.read().strip()
+
+
+app.secret_key = _secret_key()
+if os.environ.get("AANDJ_BEHIND_HTTPS") == "1":  # served through Cloudflare Tunnel / a reverse proxy
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
 ROLES = {
     "gm": "GM / CEO", "finance": "Finance & HR", "coo": "COO", "marketing": "Brand & Marketing",
@@ -264,6 +283,9 @@ def bars(items, height=160, money_fmt=True):
 
 
 # ---------------------------------------------------------------- auth
+_failed_logins = {}  # (username, ip) -> recent failure timestamps
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -279,10 +301,18 @@ def login():
                 return redirect(request.args.get("next") or url_for("home"))
             flash("Wrong or expired code", "error")
             return render_template("login.html", step="2fa")
-        u = db().execute("SELECT * FROM users WHERE username=?", (request.form.get("username", "").strip().lower(),)).fetchone()
+        uname = request.form.get("username", "").strip().lower()
+        key = (uname, request.remote_addr)
+        recent = [t for t in _failed_logins.get(key, []) if t > time.time() - 900]
+        if len(recent) >= 5:
+            flash("Too many wrong attempts – try again in 15 minutes / 尝试次数过多，请 15 分钟后再试", "error")
+            return render_template("login.html", step="pw")
+        u = db().execute("SELECT * FROM users WHERE username=?", (uname,)).fetchone()
         if not u or not check_password_hash(u["pw_hash"], request.form.get("password", "")):
+            _failed_logins[key] = recent + [time.time()]
             flash("Wrong username or password", "error")
             return render_template("login.html", step="pw")
+        _failed_logins.pop(key, None)
         if not u["active"]:
             flash("Your account is waiting for the GM's approval / 账户待总经理审批", "error")
             return render_template("login.html", step="pw")
