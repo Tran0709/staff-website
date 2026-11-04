@@ -1,8 +1,0 @@
-{% extends "base.html" %}{% block title %}{{ t('Guide') }}{% endblock %}
-{% block body %}
-<p><a href="?lang=en">English</a> · <a href="?lang=zh">中文</a></p>
-<div class="card guide" id="guide">{% for line in text.splitlines() %}
-{% if line.startswith('## ') %}<h2>{{ line[3:] }}</h2>{% elif line.startswith('# ') %}<h1>{{ line[2:] }}</h1>
-{% elif line.startswith('- ') %}<div>• {{ line[2:] }}</div>{% elif line.strip() %}<p>{{ line }}</p>{% endif %}
-{% endfor %}</div>
-{% endblock %}
